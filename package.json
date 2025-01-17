@@ -1,0 +1,25 @@
+{
+  "name": "practica04_230028_sesioneshttp",
+  "version": "1.0.0",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "Jesús Domínguez Ramírez",
+  "license": "ISC",
+  "description": "Realizar un ejemplo de aplicación web basada en el TechStack de NodeJS, Express que permita controlar las Sesiones y que registre los siguientes datos en las variables de sesión",
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "moment-timezone": "^0.5.46",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
