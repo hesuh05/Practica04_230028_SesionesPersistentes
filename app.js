@@ -4,10 +4,12 @@ import {v4 as uuidv4} from 'uuid'
 import session from 'express-session'
 import moment from 'moment-timezone'
 import os from 'os'
+import cors from 'cors'
 
 const app = express();
 app.use(express.urlencoded({extended:true}))
 app.use(express.json())
+app.use(cors())
 app.listen(3000,()=>{
     console.log("Servidor corriendo en el puerto 3000")
 })
@@ -29,6 +31,32 @@ const getClientIp = (req) =>{
         req.connection.socket?.remoteAddress
     )
 }
+const getLocalIp = () => {
+    const networkInterfaces = os.networkInterfaces();
+    for (const interfaceName in networkInterfaces) {
+        const interfaces = networkInterfaces[interfaceName];
+        for (const iface of interfaces) {
+            // IPv4 y no interna (no localhost)
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return null; // Retorna null si no encuentra una IP válida
+};
+const getServerMacAddress = () => {
+    const networkInterfaces = os.networkInterfaces();
+    for (let interfaceName in networkInterfaces) {
+        const interfaceInfo = networkInterfaces[interfaceName];
+        for (let i = 0; i < interfaceInfo.length; i++) {
+            const address = interfaceInfo[i];
+            if (address.family === 'IPv4' && !address.internal) {
+                return address.mac;  // Retorna la dirección MAC de la interfaz de red
+            }
+        }
+    }
+    return null; // Si no se encuentra, devuelve null
+};
 // Login endpoint
 app.post("/login",(req,res)=>{
     console.log(req.body)
@@ -38,12 +66,14 @@ app.post("/login",(req,res)=>{
     }
     const sessionId = uuidv4();
     const now = new Date();
+    const serverMac = getServerMacAddress(); 
     sessions[sessionId]={
         sessionId,
         email,
         nickname,
         macAddress,
-        ip: getClientIp(req),
+        serverMac,
+        ip: getLocalIp(),
         createdAt:now,
         lastAccess:now
     }
@@ -97,4 +127,17 @@ app.post("/login",(req,res)=>{
             session:sessions[sessionId]
         })
     })
+    // Endpoint para obtener la lista de sesiones activas
+    app.get("/sessions", (req, res) => {
+        if (Object.keys(sessions).length === 0) {
+            return res.status(404).json({ message: "No hay sesiones activas" });
+        }
+
+        const activeSessions = Object.values(sessions); // Convierte el objeto de sesiones en un array
+        res.status(200).json({
+            message: "Lista de sesiones activas",
+            sessions: activeSessions,
+        });
+    });
+
 })
