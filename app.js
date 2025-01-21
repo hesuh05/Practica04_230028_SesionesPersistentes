@@ -9,13 +9,17 @@ import cors from 'cors'
 const app = express();
 app.use(express.urlencoded({extended:true}))
 app.use(express.json())
-app.use(cors())
+app.use(cors({
+    origin:[
+        ''
+    ]
+}))
 app.listen(3000,()=>{
     console.log("Servidor corriendo en el puerto 3000")
 })
 // Configuración de las sesiones
 app.use(session({
-    secret:"p4-JDR#witchsoda-sesioneshttp",
+    secret:"P4-JDR#witchsoda-SesionesHTTP-VariablesDeSesion",
     resave:false,
     saveUninitialized:false,
     cookie:{maxAge:5*60*1000}
@@ -44,6 +48,20 @@ const getLocalIp = () => {
     }
     return null; // Retorna null si no encuentra una IP válida
 };
+// Funcion de utilidad que nos permitira acceder a la información de la interfaz de la red
+const getServerNetworkInfo = () => {
+    const interfaces = os.networkInterfaces();
+    for (const name in interfaces){
+        for (const iface of interfaces[name]){
+            if (iface.family === 'IPv4' && !iface.internal){
+                return {
+                    serverIp: iface.address,
+                    serverMac: iface.mac
+                }
+            }
+        }
+    }
+}
 const getServerMacAddress = () => {
     const networkInterfaces = os.networkInterfaces();
     for (let interfaceName in networkInterfaces) {
@@ -57,6 +75,12 @@ const getServerMacAddress = () => {
     }
     return null; // Si no se encuentra, devuelve null
 };
+app.get('/',(req,res)=>{
+    return res.status(200).json({
+        message:"Bienvenido al API de Control de Sesiones",
+        author: "Jesús Domínguez Ramírez"
+    })
+})
 // Login endpoint
 app.post("/login",(req,res)=>{
     console.log(req.body)
@@ -72,8 +96,8 @@ app.post("/login",(req,res)=>{
         email,
         nickname,
         macAddress,
-        serverMac,
-        ip: getLocalIp(),
+        //serverMac,
+        ip: getServerNetworkInfo(),
         createdAt:now,
         lastAccess:now
     }
