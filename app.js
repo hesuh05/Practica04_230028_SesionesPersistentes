@@ -5,7 +5,9 @@ import session from 'express-session'
 import moment from 'moment-timezone'
 import os from 'os'
 import cors from 'cors'
-
+import './database.js'
+//10.10.60.27 Marco
+//10.10.60.15 Citlali
 const app = express();
 app.use(express.urlencoded({extended:true}))
 app.use(express.json())
@@ -75,6 +77,32 @@ const getServerMacAddress = () => {
     }
     return null; // Si no se encuentra, devuelve null
 };
+const auth = (req,res,next) => {
+    console.log("hola")
+    if (req.session){
+        const ultimoAcceso = moment(req.session.lastAccess)
+        const ahora = moment()
+        console.log(ultimoAcceso)
+        console.log(ahora)
+        const inactividad = ahora-ultimoAcceso
+        console.log(inactividad)
+        if(inactividad>=120000){
+            req.session.destroy((err)=>{
+                if (err){
+                    return res.status(500).send('Error al cerrar sesión')
+                }
+                return res.send('La sesión ha sido cerrada automáticamente por inactividad')
+            })
+            return
+        } else {
+            const minutos = Math.floor((inactividad/(1000*60)));
+            console.log(minutos)
+            const segundos = Math.floor((inactividad%(1000*60))/1000);
+            req.session.idle_activity=`${minutos} minutos, ${segundos} segundos`;
+        }
+    }
+    next()
+}
 app.get('/',(req,res)=>{
     return res.status(200).json({
         message:"Bienvenido al API de Control de Sesiones",
@@ -82,15 +110,15 @@ app.get('/',(req,res)=>{
     })
 })
 // Login endpoint
-app.post("/login",(req,res)=>{
+app.post("/login",auth,(req,res)=>{
     console.log(req.body)
     const {email, nickname, macAddress}=req.body;
     if (!email || !nickname || !macAddress){
         return res.status(400).json({message:"Missing required fields"});
     }
     const sessionId = uuidv4();
-    const now = new Date();
     const serverMac = getServerMacAddress(); 
+    const inicio = moment(new Date()).tz('America/Mexico_City').format('YYYY-MM-DD HH:mm:ss')
     sessions[sessionId]={
         sessionId,
         email,
@@ -98,8 +126,9 @@ app.post("/login",(req,res)=>{
         macAddress,
         //serverMac,
         ip: getServerNetworkInfo(),
-        createdAt:now,
-        lastAccess:now
+        createdAt:moment(new Date()).tz('America/Mexico_City').format('YYYY-MM-DD HH:mm:ss'),
+        lastAccess:moment(new Date()).tz('America/Mexico_City').format('YYYY-MM-DD HH:mm:ss'),
+        idle_activity:`0 minutos, 0 segundos`
     }
 
     res.status(200).json({
@@ -125,14 +154,23 @@ app.post("/login",(req,res)=>{
     })
 
     //Actualización de la Sesión
-    app.put("/update",(req,res)=>{
+    app.put("/update",auth,(req,res)=>{
         const {sessionId,email,nickname} = req.body;
         if (!sessionId || !sessions[sessionId]){
             return res.status(404).json({message:"No existe una sesión activa"});
         }
+
         if (email) sessions[sessionId].email = email
         if(nickname) sessions[sessionId].nickname = nickname;
-        sessions[sessionId].lastAccess = new Date()
+        req.session.lastAccess=moment(new Date()).tz('America/Mexico_City').format('YYYY-MM-DD HH:mm:ss')
+        const ultimoAcceso = new Date(req.session.lastAccess);
+        const ahora = new Date()
+        const inactividad = ahora-ultimoAcceso;
+        const minutos = Math.floor((inactividad%(1000*60*60))/(1000*60));
+        const segundos = Math.floor((inactividad%(1000*60))/1000);
+        console.log(inactividad)
+        req.session.idle_activity=`${minutos} minutos, ${segundos} segundos`;
+        sessions[sessionId].lastAccess = req.session.lastAccess
         res.status(200).json({
             message:"La sesión ha sido actualizada",
             session: session[sessionId]
@@ -140,7 +178,7 @@ app.post("/login",(req,res)=>{
     })
 
     //Estatus
-    app.get("/status",(req,res)=>{
+    app.get("/status",auth,(req,res)=>{
         const sessionId = req.query.sessionId;
 
         if(!sessionId || !sessions[sessionId]){
